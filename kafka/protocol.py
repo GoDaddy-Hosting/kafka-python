@@ -51,7 +51,7 @@ class KafkaProtocol(object):
                            0,                    # ApiVersion
                            correlation_id,       # CorrelationId
                            len(client_id),
-                           client_id)            # ClientId
+                           client_id.encode('utf-8'))           # ClientId
 
     @classmethod
     def _encode_message_set(cls, messages):
@@ -65,12 +65,12 @@ class KafkaProtocol(object):
           Offset => int64
           MessageSize => int32
         """
-        message_set = ""
+        message_set = []
         for message in messages:
             encoded_message = KafkaProtocol._encode_message(message)
             message_set += struct.pack('>qi%ds' % len(encoded_message), 0,
                                        len(encoded_message), encoded_message)
-        return message_set
+        return bytes(message_set)
 
     @classmethod
     def _encode_message(cls, message):
@@ -91,10 +91,15 @@ class KafkaProtocol(object):
         """
         if message.magic == 0:
             msg = struct.pack('>BB', message.magic, message.attributes)
-            msg += write_int_string(message.key)
-            msg += write_int_string(message.value)
+            key = message.key
+            msg += write_int_string(key)
+
+            val = message.value
+            msg += write_int_string(val)
+
             crc = zlib.crc32(msg)
-            msg = struct.pack('>i%ds' % len(msg), crc, msg)
+            print(crc)
+            msg = struct.pack('>I%ds' % len(msg), crc, msg)
         else:
             raise Exception("Unexpected magic number: %d" % message.magic)
         return msg
@@ -116,6 +121,7 @@ class KafkaProtocol(object):
                 ((offset, ), cur) = relative_unpack('>q', data, cur)
                 (msg, cur) = read_int_string(data, cur)
                 for (offset, message) in KafkaProtocol._decode_message(msg, offset):
+                    print(message)
                     read_message = True
                     yield OffsetAndMessage(offset, message)
             except BufferUnderflowError:
@@ -145,6 +151,10 @@ class KafkaProtocol(object):
         of the MessageSet payload).
         """
         ((crc, magic, att), cur) = relative_unpack('>iBB', data, 0)
+        print(data)
+        print(data[4:])
+        print(crc)
+        print(zlib.crc32(data[4:]))
         if crc != zlib.crc32(data[4:]):
             raise ChecksumError("Message checksum failed")
 
@@ -197,12 +207,13 @@ class KafkaProtocol(object):
 
         message += struct.pack('>hii', acks, timeout, len(grouped_payloads))
 
-        for topic, topic_payloads in grouped_payloads.items():
+        for topic, topic_payloads in sorted(grouped_payloads.items()):
             message += struct.pack('>h%dsi' % len(topic),
                                    len(topic), topic, len(topic_payloads))
 
-            for partition, payload in topic_payloads.items():
+            for partition, payload in sorted(topic_payloads.items()):
                 msg_set = KafkaProtocol._encode_message_set(payload.messages)
+                print(msg_set)
                 message += struct.pack('>ii%ds' % len(msg_set), partition,
                                        len(msg_set), msg_set)
 
@@ -256,10 +267,10 @@ class KafkaProtocol(object):
         message += struct.pack('>iiii', -1, max_wait_time, min_bytes,
                                len(grouped_payloads))
 
-        for topic, topic_payloads in grouped_payloads.items():
-            message += write_short_string(topic)
+        for topic, topic_payloads in sorted(grouped_payloads.items()):
+            message += write_short_string(topic.encode('utf-8'))
             message += struct.pack('>i', len(topic_payloads))
-            for partition, payload in topic_payloads.items():
+            for partition, payload in sorted(topic_payloads.items()):
                 message += struct.pack('>iqi', partition, payload.offset,
                                        payload.max_bytes)
 
@@ -356,7 +367,7 @@ class KafkaProtocol(object):
         message += struct.pack('>i', len(topics))
 
         for topic in topics:
-            message += struct.pack('>h%ds' % len(topic), len(topic), topic)
+            message += struct.pack('>h%ds' % len(topic), len(topic), topic.encode('utf-8'))
 
         return write_int_string(message)
 
@@ -371,6 +382,7 @@ class KafkaProtocol(object):
         """
         ((correlation_id, numbrokers), cur) = relative_unpack('>ii', data, 0)
 
+        print('unpacked metadata')
         # Broker info
         brokers = {}
         for i in range(numbrokers):
@@ -379,11 +391,13 @@ class KafkaProtocol(object):
             ((port,), cur) = relative_unpack('>i', data, cur)
             brokers[nodeId] = BrokerMetadata(nodeId, host, port)
 
+        print('topic stuff')
         # Topic info
         ((num_topics,), cur) = relative_unpack('>i', data, cur)
         topic_metadata = {}
 
         for i in range(num_topics):
+            print('looping')
             # NOTE: topic_error is discarded. Should probably be returned with
             # the topic metadata.
             ((topic_error,), cur) = relative_unpack('>h', data, cur)

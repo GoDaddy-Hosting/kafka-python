@@ -1,11 +1,11 @@
 from __future__ import absolute_import
 
-from itertools import izip_longest, repeat
+from itertools import zip_longest as izip_longest, repeat
 import logging
 import time
 from threading import Lock
 from multiprocessing import Process, Queue as MPQueue, Event, Value
-from Queue import Empty, Queue
+from queue import Empty, Queue
 
 from kafka.common import (
     ErrorMapping, FetchRequest,
@@ -425,7 +425,7 @@ class SimpleConsumer(Consumer):
                         # Put the message in our queue
                         self.queue.put((partition, message))
                         self.fetch_offsets[partition] = message.offset + 1
-                except ConsumerFetchSizeTooSmall, e:
+                except ConsumerFetchSizeTooSmall as e:
                     if (self.max_buffer_size is not None and
                             self.buffer_size == self.max_buffer_size):
                         log.error("Max fetch size %d too small",
@@ -439,7 +439,7 @@ class SimpleConsumer(Consumer):
                     log.warn("Fetch size too small, increase to %d (2x) "
                              "and retry", self.buffer_size)
                     retry_partitions.add(partition)
-                except ConsumerNoMoreData, e:
+                except ConsumerNoMoreData as e:
                     log.debug("Iteration was ended by %r", e)
                 except StopIteration:
                     # Stop iterating through this partition

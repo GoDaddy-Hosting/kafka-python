@@ -19,7 +19,7 @@ def collect_hosts(hosts, randomize=True):
     randomize the returned list.
     """
 
-    if isinstance(hosts, basestring):
+    if isinstance(hosts, str):
         hosts = hosts.strip().split(',')
 
     result = []
@@ -55,6 +55,7 @@ class KafkaConnection(local):
         self.host = host
         self.port = port
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print('host:', host, 'port:', port)
         self._sock.connect((host, port))
         self.timeout = timeout
         self._sock.settimeout(self.timeout)
@@ -73,7 +74,7 @@ class KafkaConnection(local):
 
     def _read_bytes(self, num_bytes):
         bytes_left = num_bytes
-        resp = ''
+        resp = b''
         log.debug("About to read %d bytes from Kafka", num_bytes)
         if self._dirty:
             self.reinit()
@@ -89,7 +90,6 @@ class KafkaConnection(local):
             bytes_left -= len(data)
             log.debug("Read %d/%d bytes from Kafka", num_bytes - bytes_left, num_bytes)
             resp += data
-
         return resp
 
     ##################
@@ -119,11 +119,17 @@ class KafkaConnection(local):
         # Read the size off of the header
         resp = self._read_bytes(4)
 
+        print('unpacking')
         (size,) = struct.unpack('>i', resp)
+        print('unpacked')
+        print(size)
 
         # Read the remainder of the response
         resp = self._read_bytes(size)
-        return str(resp)
+        print('resp', resp)
+        wrapped = resp
+        print('wrapped:',wrapped)
+        return wrapped
 
     def copy(self):
         """

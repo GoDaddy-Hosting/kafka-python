@@ -3,7 +3,11 @@ from __future__ import absolute_import
 import logging
 import time
 
-from Queue import Empty
+try:
+    from Queue import Empty
+except ImportError:
+    from queue import Empty
+
 from collections import defaultdict
 from itertools import cycle
 from multiprocessing import Queue, Process
@@ -198,7 +202,7 @@ class SimpleProducer(Producer):
             if topic not in self.client.topic_partitions:
                 self.client.load_metadata_for_topics(topic)
             self.partition_cycles[topic] = cycle(self.client.topic_partitions[topic])
-        return self.partition_cycles[topic].next()
+        return next(self.partition_cycles[topic])
 
     def send_messages(self, topic, *msg):
         partition = self._next_partition(topic)

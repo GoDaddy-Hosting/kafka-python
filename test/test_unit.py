@@ -1,9 +1,16 @@
 import os
+import sys
+if sys.version > '3':
+    long = int
+
 import random
 import struct
 import unittest
 
-from mock import MagicMock, patch
+try:
+    from mock import MagicMock, patch
+except ImportError:
+    from unittest.mock import MagicMock, patch
 
 
 from kafka import KafkaClient
@@ -160,14 +167,14 @@ class TestProtocol(unittest.TestCase):
         self.assertEqual(msg.value, expect)
 
     def test_encode_message_header(self):
-        expect = '\x00\n\x00\x00\x00\x00\x00\x04\x00\x07client3'
+        expect = b'\x00\n\x00\x00\x00\x00\x00\x04\x00\x07client3'
         encoded = KafkaProtocol._encode_message_header("client3", 4, 10)
         self.assertEqual(encoded, expect)
 
     def test_encode_message(self):
-        message = create_message("test", "key")
+        message = create_message(b"test", b"key")
         encoded = KafkaProtocol._encode_message(message)
-        expect = "\xaa\xf1\x8f[\x00\x00\x00\x00\x00\x03key\x00\x00\x00\x04test"
+        expect = b"\xaa\xf1\x8f[\x00\x00\x00\x00\x00\x03key\x00\x00\x00\x04test"
         self.assertEqual(encoded, expect)
 
     def test_encode_message_failure(self):
@@ -175,16 +182,16 @@ class TestProtocol(unittest.TestCase):
                           Message(1, 0, "key", "test"))
 
     def test_encode_message_set(self):
-        message_set = [create_message("v1", "k1"), create_message("v2", "k2")]
+        message_set = [create_message(b"v1", b"k1"), create_message(b"v2", b"k2")]
         encoded = KafkaProtocol._encode_message_set(message_set)
-        expect = ("\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x12W\xe7In\x00"
-                  "\x00\x00\x00\x00\x02k1\x00\x00\x00\x02v1\x00\x00\x00\x00"
-                  "\x00\x00\x00\x00\x00\x00\x00\x12\xff\x06\x02I\x00\x00\x00"
-                  "\x00\x00\x02k2\x00\x00\x00\x02v2")
+        expect = (b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x12W\xe7In\x00"
+                  b"\x00\x00\x00\x00\x02k1\x00\x00\x00\x02v1\x00\x00\x00\x00"
+                  b"\x00\x00\x00\x00\x00\x00\x00\x12\xff\x06\x02I\x00\x00\x00"
+                  b"\x00\x00\x02k2\x00\x00\x00\x02v2")
         self.assertEqual(encoded, expect)
 
     def test_decode_message(self):
-        encoded = "\xaa\xf1\x8f[\x00\x00\x00\x00\x00\x03key\x00\x00\x00\x04test"
+        encoded = b"\xaa\xf1\x8f[\x00\x00\x00\x00\x00\x03key\x00\x00\x00\x04test"
         offset = 10
         (returned_offset, decoded_message) = \
             list(KafkaProtocol._decode_message(encoded, offset))[0]
@@ -192,10 +199,10 @@ class TestProtocol(unittest.TestCase):
         self.assertEqual(decoded_message, create_message("test", "key"))
 
     def test_decode_message_set(self):
-        encoded = ('\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10L\x9f[\xc2'
-                   '\x00\x00\xff\xff\xff\xff\x00\x00\x00\x02v1\x00\x00\x00\x00'
-                   '\x00\x00\x00\x00\x00\x00\x00\x10\xd5\x96\nx\x00\x00\xff'
-                   '\xff\xff\xff\x00\x00\x00\x02v2')
+        encoded = (b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10L\x9f[\xc2'
+                   b'\x00\x00\xff\xff\xff\xff\x00\x00\x00\x02v1\x00\x00\x00\x00'
+                   b'\x00\x00\x00\x00\x00\x00\x00\x10\xd5\x96\nx\x00\x00\xff'
+                   b'\xff\xff\xff\x00\x00\x00\x02v2')
         iter = KafkaProtocol._decode_message_set_iter(encoded)
         decoded = list(iter)
         self.assertEqual(len(decoded), 2)
@@ -208,11 +215,11 @@ class TestProtocol(unittest.TestCase):
 
     @unittest.skipUnless(has_gzip(), "Gzip not available")
     def test_decode_message_gzip(self):
-        gzip_encoded = ('\xc0\x11\xb2\xf0\x00\x01\xff\xff\xff\xff\x00\x00\x000'
-                        '\x1f\x8b\x08\x00\xa1\xc1\xc5R\x02\xffc`\x80\x03\x01'
-                        '\x9f\xf9\xd1\x87\x18\x18\xfe\x03\x01\x90\xc7Tf\xc8'
-                        '\x80$wu\x1aW\x05\x92\x9c\x11\x00z\xc0h\x888\x00\x00'
-                        '\x00')
+        gzip_encoded = (b'\xc0\x11\xb2\xf0\x00\x01\xff\xff\xff\xff\x00\x00\x000'
+                        b'\x1f\x8b\x08\x00\xa1\xc1\xc5R\x02\xffc`\x80\x03\x01'
+                        b'\x9f\xf9\xd1\x87\x18\x18\xfe\x03\x01\x90\xc7Tf\xc8'
+                        b'\x80$wu\x1aW\x05\x92\x9c\x11\x00z\xc0h\x888\x00\x00'
+                        b'\x00')
         offset = 11
         decoded = list(KafkaProtocol._decode_message(gzip_encoded, offset))
         self.assertEqual(len(decoded), 2)
@@ -240,7 +247,7 @@ class TestProtocol(unittest.TestCase):
         self.assertEqual(decoded_message2, create_message("v2"))
 
     def test_decode_message_checksum_error(self):
-        invalid_encoded_message = "This is not a valid encoded message"
+        invalid_encoded_message = b"This is not a valid encoded message"
         iter = KafkaProtocol._decode_message(invalid_encoded_message, 0)
         self.assertRaises(ChecksumError, list, iter)
 
@@ -251,12 +258,13 @@ class TestProtocol(unittest.TestCase):
         self.assertRaises(ConsumerFetchSizeTooSmall, list, iter)
 
     def test_decode_message_set_stop_iteration(self):
-        encoded = ('\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10L\x9f[\xc2'
-                   '\x00\x00\xff\xff\xff\xff\x00\x00\x00\x02v1\x00\x00\x00\x00'
-                   '\x00\x00\x00\x00\x00\x00\x00\x10\xd5\x96\nx\x00\x00\xff'
-                   '\xff\xff\xff\x00\x00\x00\x02v2')
-        iter = KafkaProtocol._decode_message_set_iter(encoded + "@#$%(Y!")
+        encoded = (b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10L\x9f[\xc2'
+                   b'\x00\x00\xff\xff\xff\xff\x00\x00\x00\x02v1\x00\x00\x00\x00'
+                   b'\x00\x00\x00\x00\x00\x00\x00\x10\xd5\x96\nx\x00\x00\xff'
+                   b'\xff\xff\xff\x00\x00\x00\x02v2')
+        iter = KafkaProtocol._decode_message_set_iter(encoded  + b"@#$%(Y!")
         decoded = list(iter)
+        print(decoded)
         self.assertEqual(len(decoded), 2)
         (returned_offset1, decoded_message1) = decoded[0]
         self.assertEqual(returned_offset1, 0)
@@ -266,44 +274,46 @@ class TestProtocol(unittest.TestCase):
         self.assertEqual(decoded_message2, create_message("v2"))
 
     def test_encode_produce_request(self):
-        requests = [ProduceRequest("topic1", 0, [create_message("a"),
-                                                 create_message("b")]),
-                    ProduceRequest("topic2", 1, [create_message("c")])]
-        expect = ('\x00\x00\x00\x94\x00\x00\x00\x00\x00\x00\x00\x02\x00\x07'
-                  'client1\x00\x02\x00\x00\x00d\x00\x00\x00\x02\x00\x06topic1'
-                  '\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x006\x00\x00\x00'
-                  '\x00\x00\x00\x00\x00\x00\x00\x00\x0fQ\xdf:2\x00\x00\xff\xff'
-                  '\xff\xff\x00\x00\x00\x01a\x00\x00\x00\x00\x00\x00\x00\x00'
-                  '\x00\x00\x00\x0f\xc8\xd6k\x88\x00\x00\xff\xff\xff\xff\x00'
-                  '\x00\x00\x01b\x00\x06topic2\x00\x00\x00\x01\x00\x00\x00\x01'
-                  '\x00\x00\x00\x1b\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
-                  '\x00\x0f\xbf\xd1[\x1e\x00\x00\xff\xff\xff\xff\x00\x00\x00'
-                  '\x01c')
+        requests = [ProduceRequest("topic1", 0, [create_message(b"a"),
+                                                 create_message(b"b")]),
+                    ProduceRequest("topic2", 1, [create_message(b"c")])]
+        print(requests)
+        expect = (b'\x00\x00\x00\x94\x00\x00\x00\x00\x00\x00\x00\x02\x00\x07'
+                  b'client1\x00\x02\x00\x00\x00d\x00\x00\x00\x02\x00\x06topic1'
+                  b'\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x006\x00\x00\x00'
+                  b'\x00\x00\x00\x00\x00\x00\x00\x00\x0fQ\xdf:2\x00\x00\xff\xff'
+                  b'\xff\xff\x00\x00\x00\x01a\x00\x00\x00\x00\x00\x00\x00\x00'
+                  b'\x00\x00\x00\x0f\xc8\xd6k\x88\x00\x00\xff\xff\xff\xff\x00'
+                  b'\x00\x00\x01b\x00\x06topic2\x00\x00\x00\x01\x00\x00\x00\x01'
+                  b'\x00\x00\x00\x1b\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+                  b'\x00\x0f\xbf\xd1[\x1e\x00\x00\xff\xff\xff\xff\x00\x00\x00'
+                  b'\x01c')
         encoded = KafkaProtocol.encode_produce_request("client1", 2, requests,
                                                        2, 100)
+
         self.assertEqual(encoded, expect)
 
     def test_decode_produce_response(self):
-        t1 = "topic1"
-        t2 = "topic2"
+        t1 = b"topic1"
+        t2 = b"topic2"
         encoded = struct.pack('>iih%dsiihqihqh%dsiihq' % (len(t1), len(t2)),
-                              2, 2, len(t1), t1, 2, 0, 0, 10L, 1, 1, 20L,
-                              len(t2), t2, 1, 0, 0, 30L)
+                              2, 2, len(t1), t1, 2, 0, 0, long(10), 1, 1, long(20),
+                              len(t2), t2, 1, 0, 0, long(30))
         responses = list(KafkaProtocol.decode_produce_response(encoded))
         self.assertEqual(responses,
-                         [ProduceResponse(t1, 0, 0, 10L),
-                          ProduceResponse(t1, 1, 1, 20L),
-                          ProduceResponse(t2, 0, 0, 30L)])
+                         [ProduceResponse(t1, 0, 0, long(10)),
+                          ProduceResponse(t1, 1, 1, long(20)),
+                          ProduceResponse(t2, 0, 0, long(30))])
 
     def test_encode_fetch_request(self):
         requests = [FetchRequest("topic1", 0, 10, 1024),
                     FetchRequest("topic2", 1, 20, 100)]
-        expect = ('\x00\x00\x00Y\x00\x01\x00\x00\x00\x00\x00\x03\x00\x07'
-                  'client1\xff\xff\xff\xff\x00\x00\x00\x02\x00\x00\x00d\x00'
-                  '\x00\x00\x02\x00\x06topic1\x00\x00\x00\x01\x00\x00\x00\x00'
-                  '\x00\x00\x00\x00\x00\x00\x00\n\x00\x00\x04\x00\x00\x06'
-                  'topic2\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x00\x00'
-                  '\x00\x00\x14\x00\x00\x00d')
+        expect = (b'\x00\x00\x00Y\x00\x01\x00\x00\x00\x00\x00\x03\x00\x07'
+                  b'client1\xff\xff\xff\xff\x00\x00\x00\x02\x00\x00\x00d\x00'
+                  b'\x00\x00\x02\x00\x06topic1\x00\x00\x00\x01\x00\x00\x00\x00'
+                  b'\x00\x00\x00\x00\x00\x00\x00\n\x00\x00\x04\x00\x00\x06'
+                  b'topic2\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x00\x00'
+                  b'\x00\x00\x14\x00\x00\x00d')
         encoded = KafkaProtocol.encode_fetch_request("client1", 3, requests, 2,
                                                      100)
         self.assertEqual(encoded, expect)
@@ -338,27 +348,27 @@ class TestProtocol(unittest.TestCase):
 
     def test_encode_metadata_request_no_topics(self):
         encoded = KafkaProtocol.encode_metadata_request("cid", 4)
-        self.assertEqual(encoded, '\x00\x00\x00\x11\x00\x03\x00\x00\x00\x00'
-                                  '\x00\x04\x00\x03cid\x00\x00\x00\x00')
+        self.assertEqual(encoded, b'\x00\x00\x00\x11\x00\x03\x00\x00\x00\x00'
+                                  b'\x00\x04\x00\x03cid\x00\x00\x00\x00')
 
     def test_encode_metadata_request_with_topics(self):
         encoded = KafkaProtocol.encode_metadata_request("cid", 4, ["t1", "t2"])
-        self.assertEqual(encoded, '\x00\x00\x00\x19\x00\x03\x00\x00\x00\x00'
-                                  '\x00\x04\x00\x03cid\x00\x00\x00\x02\x00\x02'
-                                  't1\x00\x02t2')
+        self.assertEqual(encoded, b'\x00\x00\x00\x19\x00\x03\x00\x00\x00\x00'
+                                  b'\x00\x04\x00\x03cid\x00\x00\x00\x02\x00\x02'
+                                  b't1\x00\x02t2')
 
     def _create_encoded_metadata_response(self, broker_data, topic_data,
                                           topic_errors, partition_errors):
         encoded = struct.pack('>ii', 3, len(broker_data))
-        for node_id, broker in broker_data.iteritems():
+        for node_id, broker in broker_data.items():
             encoded += struct.pack('>ih%dsi' % len(broker.host), node_id,
                                    len(broker.host), broker.host, broker.port)
 
         encoded += struct.pack('>i', len(topic_data))
-        for topic, partitions in topic_data.iteritems():
+        for topic, partitions in topic_data.items():
             encoded += struct.pack('>hh%dsi' % len(topic), topic_errors[topic],
                                    len(topic), topic, len(partitions))
-            for partition, metadata in partitions.iteritems():
+            for partition, metadata in partitions.items():
                 encoded += struct.pack('>hiii',
                                        partition_errors[(topic, partition)],
                                        partition, metadata.leader,
@@ -376,24 +386,24 @@ class TestProtocol(unittest.TestCase):
 
     def test_decode_metadata_response(self):
         node_brokers = {
-            0: BrokerMetadata(0, "brokers1.kafka.rdio.com", 1000),
-            1: BrokerMetadata(1, "brokers1.kafka.rdio.com", 1001),
-            3: BrokerMetadata(3, "brokers2.kafka.rdio.com", 1000)
+            0: BrokerMetadata(0, b"brokers1.kafka.rdio.com", 1000),
+            1: BrokerMetadata(1, b"brokers1.kafka.rdio.com", 1001),
+            3: BrokerMetadata(3, b"brokers2.kafka.rdio.com", 1000)
         }
         topic_partitions = {
-            "topic1": {
-                0: PartitionMetadata("topic1", 0, 1, (0, 2), (2,)),
-                1: PartitionMetadata("topic1", 1, 3, (0, 1), (0, 1))
+            b"topic1": {
+                0: PartitionMetadata(b"topic1", 0, 1, (0, 2), (2,)),
+                1: PartitionMetadata(b"topic1", 1, 3, (0, 1), (0, 1))
             },
-            "topic2": {
-                0: PartitionMetadata("topic2", 0, 0, (), ())
+            b"topic2": {
+                0: PartitionMetadata(b"topic2", 0, 0, (), ())
             }
         }
-        topic_errors = {"topic1": 0, "topic2": 1}
+        topic_errors = {b"topic1": 0, b"topic2": 1}
         partition_errors = {
-            ("topic1", 0): 0,
-            ("topic1", 1): 1,
-            ("topic2", 0): 0
+            (b"topic1", 0): 0,
+            (b"topic1", 1): 1,
+            (b"topic2", 0): 0
         }
         encoded = self._create_encoded_metadata_response(node_brokers,
                                                          topic_partitions,
@@ -435,9 +445,9 @@ class TestKafkaClient(unittest.TestCase):
             client = KafkaClient(
                 hosts=['kafka01:9092', 'kafka02:9092', 'kafka03:9092'])
 
-        self.assertItemsEqual(
+        self.assertListEqual(
             [('kafka01', 9092), ('kafka02', 9092), ('kafka03', 9092)],
-            client.hosts)
+            sorted(client.hosts))
 
     def test_init_with_csv(self):
 
@@ -445,9 +455,9 @@ class TestKafkaClient(unittest.TestCase):
             client = KafkaClient(
                 hosts='kafka01:9092,kafka02:9092,kafka03:9092')
 
-        self.assertItemsEqual(
+        self.assertListEqual(
             [('kafka01', 9092), ('kafka02', 9092), ('kafka03', 9092)],
-            client.hosts)
+            sorted(client.hosts))
 
     def test_init_with_unicode_csv(self):
 
@@ -455,9 +465,9 @@ class TestKafkaClient(unittest.TestCase):
             client = KafkaClient(
                 hosts=u'kafka01:9092,kafka02:9092,kafka03:9092')
 
-        self.assertItemsEqual(
+        self.assertListEqual(
             [('kafka01', 9092), ('kafka02', 9092), ('kafka03', 9092)],
-            client.hosts)
+            sorted(client.hosts))
 
     def test_send_broker_unaware_request_fail(self):
         'Tests that call fails when all hosts are unavailable'
@@ -484,7 +494,7 @@ class TestKafkaClient(unittest.TestCase):
                 client._send_broker_unaware_request,
                 1, 'fake request')
 
-            for key, conn in mocked_conns.iteritems():
+            for key, conn in mocked_conns.items():
                 conn.send.assert_called_with(1, 'fake request')
 
     def test_send_broker_unaware_request(self):

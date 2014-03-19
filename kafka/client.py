@@ -75,7 +75,7 @@ class KafkaClient(object):
         """
         Generate a new correlation id
         """
-        return KafkaClient.ID_GEN.next()
+        return next(KafkaClient.ID_GEN)
 
     def _send_broker_unaware_request(self, requestId, request):
         """
@@ -84,11 +84,15 @@ class KafkaClient(object):
         """
         for (host, port) in self.hosts:
             try:
+                print((host,port))
                 conn = self._get_conn(host, port)
+                print(conn)
                 conn.send(requestId, request)
+                print('sent')
                 response = conn.recv(requestId)
+                print('response:', response)
                 return response
-            except Exception, e:
+            except Exception as e:
                 log.warning("Could not send request [%r] to server %s:%i, "
                             "trying next server: %s" % (request, host, port, e))
                 continue
@@ -150,11 +154,11 @@ class KafkaClient(object):
                     continue
                 try:
                     response = conn.recv(requestId)
-                except ConnectionError, e:
+                except ConnectionError as e:
                     log.warning("Could not receive response to request [%s] "
                                 "from server %s: %s", request, conn, e)
                     failed = True
-            except ConnectionError, e:
+            except ConnectionError as e:
                 log.warning("Could not send request [%s] to server %s: %s",
                             request, conn, e)
                 failed = True
@@ -238,7 +242,6 @@ class KafkaClient(object):
                                                         request_id, topics)
 
         response = self._send_broker_unaware_request(request_id, request)
-
         (brokers, topics) = KafkaProtocol.decode_metadata_response(response)
 
         log.debug("Broker metadata: %s", brokers)

@@ -58,7 +58,15 @@ def relative_unpack(fmt, data, cur):
     if len(data) < cur + size:
         raise BufferUnderflowError("Not enough data left")
 
-    out = struct.unpack(fmt, data[cur:cur + size])
+    print('unpacking:', data,'fmt:', fmt, 'size:', size, 'cur:', cur)
+    print("data's type", type(data))
+    end = cur + size
+    test = data[cur:end]
+    print('test:', test)
+    encoded_data = data
+    print('encoded:', encoded_data)
+    out = struct.unpack(fmt, encoded_data[cur:end])
+    print('out', out)
     return out, cur + size
 
 

@@ -268,7 +268,7 @@ class KafkaProtocol(object):
                                len(grouped_payloads))
 
         for topic, topic_payloads in sorted(grouped_payloads.items()):
-            message += write_short_string(topic.encode('utf-8'))
+            message += write_short_string(topic)
             message += struct.pack('>i', len(topic_payloads))
             for partition, payload in sorted(topic_payloads.items()):
                 message += struct.pack('>iqi', partition, payload.offset,

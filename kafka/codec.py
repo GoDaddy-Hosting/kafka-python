@@ -1,8 +1,4 @@
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from io import StringIO
-
+from io import BytesIO
 import gzip
 import struct
 
@@ -25,7 +21,7 @@ def has_snappy():
 
 
 def gzip_encode(payload):
-    buffer = StringIO()
+    buffer = BytesIO()
     handle = gzip.GzipFile(fileobj=buffer, mode="w")
     handle.write(payload)
     handle.close()
@@ -36,7 +32,7 @@ def gzip_encode(payload):
 
 
 def gzip_decode(payload):
-    buffer = StringIO(payload)
+    buffer = BytesIO(payload)
     handle = gzip.GzipFile(fileobj=buffer, mode='r')
     result = handle.read()
     handle.close()
@@ -72,7 +68,7 @@ def snappy_encode(payload, xerial_compatible=False, xerial_blocksize=32 * 1024):
             for i in xrange(0, len(payload), xerial_blocksize):
                 yield payload[i:i+xerial_blocksize]
 
-        out = StringIO()
+        out = BytesIO()
 
         header = ''.join([struct.pack('!' + fmt, dat) for fmt, dat
             in zip(_XERIAL_V1_FORMAT, _XERIAL_V1_HEADER)])
@@ -125,7 +121,7 @@ def snappy_decode(payload):
 
     if _detect_xerial_stream(payload):
         # TODO ? Should become a fileobj ?
-        out = StringIO()
+        out = BytesIO()
         byt = buffer(payload[16:])
         length = len(byt)
         cursor = 0

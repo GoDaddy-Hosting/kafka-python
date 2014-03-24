@@ -70,7 +70,7 @@ class TestCodec(unittest.TestCase):
 
     @unittest.skipUnless(has_gzip(), "Gzip not available")
     def test_gzip(self):
-        for i in xrange(ITERATIONS):
+        for i in range(ITERATIONS):
             s1 = random_string()
             s2 = gzip_decode(gzip_encode(s1))
             self.assertEquals(s1, s2)

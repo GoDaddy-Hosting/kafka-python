@@ -150,7 +150,7 @@ class KafkaProtocol(object):
         The offset is actually read from decode_message_set_iter (it is part
         of the MessageSet payload).
         """
-        ((crc, magic, att), cur) = relative_unpack('>iBB', data, 0)
+        ((crc, magic, att), cur) = relative_unpack('>IBB', data, 0)
         print(data)
         print(data[4:])
         print(crc)
@@ -208,6 +208,7 @@ class KafkaProtocol(object):
         message += struct.pack('>hii', acks, timeout, len(grouped_payloads))
 
         for topic, topic_payloads in sorted(grouped_payloads.items()):
+            if isinstance(topic, str): topic = topic.encode()
             message += struct.pack('>h%dsi' % len(topic),
                                    len(topic), topic, len(topic_payloads))
 
@@ -268,7 +269,7 @@ class KafkaProtocol(object):
                                len(grouped_payloads))
 
         for topic, topic_payloads in sorted(grouped_payloads.items()):
-            message += write_short_string(topic.encode('utf-8'))
+            message += write_short_string(topic)
             message += struct.pack('>i', len(topic_payloads))
             for partition, payload in sorted(topic_payloads.items()):
                 message += struct.pack('>iqi', partition, payload.offset,
@@ -539,6 +540,8 @@ def create_message(payload, key=None):
     payload: bytes, the payload to send to Kafka
     key: bytes, a key used for partition routing (optional)
     """
+    if isinstance(payload, str): payload = payload.encode()
+    if isinstance(key, str): key = key.encode()
     return Message(0, 0, key, payload)
 
 

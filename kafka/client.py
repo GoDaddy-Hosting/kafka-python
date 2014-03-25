@@ -25,18 +25,22 @@ class KafkaClient(object):
     # one passed to SimpleConsumer.get_message(), otherwise you can get a
     # socket timeout.
     def __init__(self, hosts, client_id=CLIENT_ID,
-                 timeout=DEFAULT_SOCKET_TIMEOUT_SECONDS):
+                 timeout=DEFAULT_SOCKET_TIMEOUT_SECONDS,
+                 load_hosts=True,
+                 load_metadata=True):
         # We need one connection to bootstrap
         self.client_id = client_id
         self.timeout = timeout
-        self.hosts = collect_hosts(hosts)
+        if load_hosts:
+            self.hosts = collect_hosts(hosts)
 
         # create connections only when we need them
         self.conns = {}
         self.brokers = {}            # broker_id -> BrokerMetadata
         self.topics_to_brokers = {}  # topic_id -> broker_id
         self.topic_partitions = {}   # topic_id -> [0, 1, 2, ...]
-        self.load_metadata_for_topics()  # bootstrap with all metadata
+        if load_metadata:
+            self.load_metadata_for_topics()  # bootstrap with all metadata
 
     ##################
     #   Private API  #
@@ -84,13 +88,9 @@ class KafkaClient(object):
         """
         for (host, port) in self.hosts:
             try:
-                print((host,port))
                 conn = self._get_conn(host, port)
-                print(conn)
                 conn.send(requestId, request)
-                print('sent')
                 response = conn.recv(requestId)
-                print('response:', response)
                 return response
             except Exception as e:
                 log.warning("Could not send request [%r] to server %s:%i, "
@@ -237,16 +237,7 @@ class KafkaClient(object):
         Discover brokers and metadata for a set of topics. This function is called
         lazily whenever metadata is unavailable.
         """
-        request_id = self._next_id()
-        request = KafkaProtocol.encode_metadata_request(self.client_id,
-                                                        request_id, topics)
-
-        response = self._send_broker_unaware_request(request_id, request)
-        (brokers, topics) = KafkaProtocol.decode_metadata_response(response)
-
-        log.debug("Broker metadata: %s", brokers)
-        log.debug("Topic metadata: %s", topics)
-
+        (brokers, topics) = self.request_metadata(*topics)
         self.brokers = brokers
 
         for topic, partitions in topics.items():
@@ -260,6 +251,19 @@ class KafkaClient(object):
                 topic_part = TopicAndPartition(topic, partition)
                 self.topics_to_brokers[topic_part] = brokers[meta.leader]
                 self.topic_partitions[topic].append(partition)
+
+    def request_metadata(self, *topics):
+        request_id = self._next_id()
+        request = KafkaProtocol.encode_metadata_request(self.client_id,
+                                                        request_id, topics)
+
+        response = self._send_broker_unaware_request(request_id, request)
+        (brokers, topics) = KafkaProtocol.decode_metadata_response(response)
+
+        log.debug("Broker metadata: %s", brokers)
+        log.debug("Topic metadata: %s", topics)
+
+        return (brokers, topics)
 
     def send_produce_request(self, payloads=[], acks=1, timeout=1000,
                              fail_on_error=True, callback=None):

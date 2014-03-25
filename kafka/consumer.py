@@ -276,36 +276,50 @@ class SimpleConsumer(Consumer):
         """
 
         if whence == 1:  # relative to current position
-            for partition, _offset in self.offsets.items():
-                self.offsets[partition] = _offset + offset
-        elif whence in (0, 2):  # relative to beginning or end
-            # divide the request offset by number of partitions,
-            # distribute the remained evenly
-            (delta, rem) = divmod(offset, len(self.offsets))
-            deltas = {}
-            for partition, r in izip_longest(self.offsets.keys(),
-                                             repeat(1, rem), fillvalue=0):
-                deltas[partition] = delta + r
-
-            reqs = []
-            for partition in self.offsets.keys():
-                if whence == 0:
-                    reqs.append(OffsetRequest(self.topic, partition, -2, 1))
-                elif whence == 2:
-                    reqs.append(OffsetRequest(self.topic, partition, -1, 1))
-                else:
-                    pass
-
-            resps = self.client.send_offset_request(reqs)
-            for resp in resps:
-                self.offsets[resp.partition] = \
-                    resp.offsets[0] + deltas[resp.partition]
+            self.seek_current(offset)
+        elif whence == 0:
+            self.seek_head(offset)
+        elif whence == 2:
+            self.seek_tail(offset)
         else:
             raise ValueError("Unexpected value for `whence`, %d" % whence)
 
         # Reset queue and fetch offsets since they are invalid
         self.fetch_offsets = self.offsets.copy()
         self.queue = Queue()
+
+    def seek_current(self, offset):
+        for partition, _offset in self.offsets.items():
+            self.offsets[partition] = _offset + offset
+
+    def seek_head(self, offset):
+        deltas = self.calc_partition_deltas(offset)
+        reqs = []
+        for partition in self.offsets.keys():
+            reqs.append(OffsetRequest(self.topic, partition, -2, 1))
+        self.send_offset_requests(reqs, deltas)
+
+    def calc_partition_deltas(self, offset):
+        (delta, rem) = divmod(offset, len(self.offsets))
+        deltas = {}
+        for partition, r in izip_longest(self.offsets.keys(), repeat(1, rem), fillvalue=0):
+            deltas[partition] = delta + r
+
+        return deltas
+
+    def seek_tail(self, offset):
+        deltas = self.calc_partition_deltas(offset)
+        reqs = []
+        for partition in self.offsets.keys():
+            reqs.append(OffsetRequest(self.topic, partition, -1, 1))
+        self.send_offset_requests(reqs, deltas)
+
+    def send_offset_requests(self, reqs, deltas):
+        resps = self.client.send_offset_request(reqs)
+        for resp in resps:
+            self.offsets[resp.partition] = \
+                resp.offsets[0] + deltas[resp.partition]
+
 
     def get_messages(self, count=1, block=True, timeout=0.1):
         """

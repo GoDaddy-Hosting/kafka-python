@@ -9,6 +9,7 @@ def write_int_string(s):
     if s is None:
         return struct.pack('>i', -1)
     else:
+        if isinstance(s, str): s = s.encode()
         return struct.pack('>i%ds' % len(s), len(s), s)
 
 
@@ -16,6 +17,7 @@ def write_short_string(s):
     if s is None:
         return struct.pack('>h', -1)
     else:
+        if isinstance(s, str): s = s.encode()
         return struct.pack('>h%ds' % len(s), len(s), s)
 
 

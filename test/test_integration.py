@@ -13,7 +13,7 @@ from .fixtures import ZookeeperFixture, KafkaFixture
 
 
 def random_string(l):
-    s = "".join(random.choice(string.letters) for i in xrange(l))
+    s = "".join(random.choice(string.ascii_letters) for i in range(l))
     return s
 
 
@@ -24,16 +24,16 @@ def ensure_topic_creation(client, topic_name):
         client.load_metadata_for_topics(topic_name)
         if client.has_metadata_for_topic(topic_name):
             break
-        print "Waiting for %s topic to be created" % topic_name
+        print("Waiting for %s topic to be created" % topic_name)
         time.sleep(1)
 
-        if times > 30:
+        if times > 5:
             raise Exception("Unable to create topic %s" % topic_name)
 
 
 class KafkaTestCase(unittest.TestCase):
     def setUp(self):
-        self.topic = "%s-%s" % (self.id()[self.id().rindex(".") + 1:], random_string(10))
+        self.topic = ("%s-%s" % (self.id()[self.id().rindex(".") + 1:], random_string(10))).encode()
         ensure_topic_creation(self.client, self.topic)
 
 
@@ -284,7 +284,8 @@ class TestKafkaClient(KafkaTestCase):
     # Producer Tests
 
     def test_simple_producer(self):
-        producer = SimpleProducer(self.client)
+        p = Producer(self.client)
+        producer = SimpleProducer(p)
         resp = producer.send_messages(self.topic, "one", "two")
 
         # Will go to partition 0
@@ -306,13 +307,13 @@ class TestKafkaClient(KafkaTestCase):
         self.assertEquals(fetch_resp1.highwaterMark, 2)
         messages = list(fetch_resp1.messages)
         self.assertEquals(len(messages), 2)
-        self.assertEquals(messages[0].message.value, "one")
-        self.assertEquals(messages[1].message.value, "two")
+        self.assertEquals(messages[0].message.value, b"one")
+        self.assertEquals(messages[1].message.value, b"two")
         self.assertEquals(fetch_resp2.error, 0)
         self.assertEquals(fetch_resp2.highwaterMark, 1)
         messages = list(fetch_resp2.messages)
         self.assertEquals(len(messages), 1)
-        self.assertEquals(messages[0].message.value, "three")
+        self.assertEquals(messages[0].message.value, b"three")
 
         # Will go to partition 0
         resp = producer.send_messages(self.topic, "four", "five")
@@ -320,15 +321,13 @@ class TestKafkaClient(KafkaTestCase):
         self.assertEquals(resp[0].error, 0)
         self.assertEquals(resp[0].offset, 2)    # offset of first msg
 
-        producer.stop()
-
     def test_round_robin_partitioner(self):
-        producer = KeyedProducer(self.client,
-                                 partitioner=RoundRobinPartitioner)
-        producer.send(self.topic, "key1", "one")
-        producer.send(self.topic, "key2", "two")
-        producer.send(self.topic, "key3", "three")
-        producer.send(self.topic, "key4", "four")
+        p = Producer(self.client)
+        producer = KeyedProducer(p, partitioner=RoundRobinPartitioner)
+        producer.send_message(self.topic, "key1", "one")
+        producer.send_message(self.topic, "key2", "two")
+        producer.send_message(self.topic, "key3", "three")
+        producer.send_message(self.topic, "key4", "four")
 
         fetch1 = FetchRequest(self.topic, 0, 0, 1024)
         fetch2 = FetchRequest(self.topic, 1, 0, 1024)
@@ -342,8 +341,8 @@ class TestKafkaClient(KafkaTestCase):
 
         messages = list(fetch_resp1.messages)
         self.assertEquals(len(messages), 2)
-        self.assertEquals(messages[0].message.value, "one")
-        self.assertEquals(messages[1].message.value, "three")
+        self.assertEquals(messages[0].message.value, b"one")
+        self.assertEquals(messages[1].message.value, b"three")
 
         self.assertEquals(fetch_resp2.error, 0)
         self.assertEquals(fetch_resp2.highwaterMark, 2)
@@ -351,18 +350,16 @@ class TestKafkaClient(KafkaTestCase):
 
         messages = list(fetch_resp2.messages)
         self.assertEquals(len(messages), 2)
-        self.assertEquals(messages[0].message.value, "two")
-        self.assertEquals(messages[1].message.value, "four")
-
-        producer.stop()
+        self.assertEquals(messages[0].message.value, b"two")
+        self.assertEquals(messages[1].message.value, b"four")
 
     def test_hashed_partitioner(self):
-        producer = KeyedProducer(self.client,
-                                 partitioner=HashedPartitioner)
-        producer.send(self.topic, 1, "one")
-        producer.send(self.topic, 2, "two")
-        producer.send(self.topic, 3, "three")
-        producer.send(self.topic, 4, "four")
+        p = Producer(self.client)
+        producer = KeyedProducer(p, partitioner=HashedPartitioner)
+        producer.send_message(self.topic, 1, "one")
+        producer.send_message(self.topic, 2, "two")
+        producer.send_message(self.topic, 3, "three")
+        producer.send_message(self.topic, 4, "four")
 
         fetch1 = FetchRequest(self.topic, 0, 0, 1024)
         fetch2 = FetchRequest(self.topic, 1, 0, 1024)
@@ -376,8 +373,8 @@ class TestKafkaClient(KafkaTestCase):
 
         messages = list(fetch_resp1.messages)
         self.assertEquals(len(messages), 2)
-        self.assertEquals(messages[0].message.value, "two")
-        self.assertEquals(messages[1].message.value, "four")
+        self.assertEquals(messages[0].message.value, b"two")
+        self.assertEquals(messages[1].message.value, b"four")
 
         self.assertEquals(fetch_resp2.error, 0)
         self.assertEquals(fetch_resp2.highwaterMark, 2)
@@ -385,14 +382,13 @@ class TestKafkaClient(KafkaTestCase):
 
         messages = list(fetch_resp2.messages)
         self.assertEquals(len(messages), 2)
-        self.assertEquals(messages[0].message.value, "one")
-        self.assertEquals(messages[1].message.value, "three")
-
-        producer.stop()
+        self.assertEquals(messages[0].message.value, b"one")
+        self.assertEquals(messages[1].message.value, b"three")
 
     def test_acks_none(self):
-        producer = SimpleProducer(self.client,
-                                  req_acks=SimpleProducer.ACK_NOT_REQUIRED)
+        p = Producer(self.client)
+        p.require_ack = Producer.ACK_NOT_REQUIRED
+        producer = SimpleProducer(p)
         resp = producer.send_messages(self.topic, "one")
         self.assertEquals(len(resp), 0)
 
@@ -405,13 +401,12 @@ class TestKafkaClient(KafkaTestCase):
 
         messages = list(fetch_resp[0].messages)
         self.assertEquals(len(messages), 1)
-        self.assertEquals(messages[0].message.value, "one")
-
-        producer.stop()
+        self.assertEquals(messages[0].message.value, b"one")
 
     def test_acks_local_write(self):
-        producer = SimpleProducer(self.client,
-                                  req_acks=SimpleProducer.ACK_AFTER_LOCAL_WRITE)
+        p = Producer(self.client)
+        p.request_ack = Producer.ACK_AFTER_LOCAL_WRITE
+        producer = SimpleProducer(p)
         resp = producer.send_messages(self.topic, "one")
         self.assertEquals(len(resp), 1)
 
@@ -424,14 +419,12 @@ class TestKafkaClient(KafkaTestCase):
 
         messages = list(fetch_resp[0].messages)
         self.assertEquals(len(messages), 1)
-        self.assertEquals(messages[0].message.value, "one")
-
-        producer.stop()
+        self.assertEquals(messages[0].message.value, b"one")
 
     def test_acks_cluster_commit(self):
-        producer = SimpleProducer(
-            self.client,
-            req_acks=SimpleProducer.ACK_AFTER_CLUSTER_COMMIT)
+        p = Producer(self.client)
+        p.request_ack = Producer.ACK_AFTER_CLUSTER_COMMIT
+        producer = SimpleProducer(p)
         resp = producer.send_messages(self.topic, "one")
         self.assertEquals(len(resp), 1)
 
@@ -444,12 +437,12 @@ class TestKafkaClient(KafkaTestCase):
 
         messages = list(fetch_resp[0].messages)
         self.assertEquals(len(messages), 1)
-        self.assertEquals(messages[0].message.value, "one")
-
-        producer.stop()
+        self.assertEquals(messages[0].message.value, b"one")
 
     def test_async_simple_producer(self):
-        producer = SimpleProducer(self.client, async=True)
+        p = AsyncProducer(self.client)
+        p.start()
+        producer = SimpleProducer(p)
         resp = producer.send_messages(self.topic, "one")
         self.assertEquals(len(resp), 0)
 
@@ -465,14 +458,16 @@ class TestKafkaClient(KafkaTestCase):
 
         messages = list(fetch_resp[0].messages)
         self.assertEquals(len(messages), 1)
-        self.assertEquals(messages[0].message.value, "one")
+        self.assertEquals(messages[0].message.value, b"one")
 
-        producer.stop()
+        p.stop()
 
     def test_async_keyed_producer(self):
-        producer = KeyedProducer(self.client, async=True)
+        p = AsyncProducer(self.client)
+        p.start()
+        producer = KeyedProducer(p)
 
-        resp = producer.send(self.topic, "key1", "one")
+        resp = producer.send_message(self.topic, "key1", "one")
         self.assertEquals(len(resp), 0)
 
         # Give it some time
@@ -487,15 +482,16 @@ class TestKafkaClient(KafkaTestCase):
 
         messages = list(fetch_resp[0].messages)
         self.assertEquals(len(messages), 1)
-        self.assertEquals(messages[0].message.value, "one")
+        self.assertEquals(messages[0].message.value, b"one")
 
-        producer.stop()
+        p.stop()
 
     def test_batched_simple_producer(self):
-        producer = SimpleProducer(self.client,
-                                  batch_send=True,
-                                  batch_send_every_n=10,
-                                  batch_send_every_t=20)
+        p = AsyncProducer(self.client)
+        p.batch_size = 10
+        p.batch_seconds = 20
+        p.start()
+        producer = SimpleProducer(p)
 
         # Send 5 messages and do a fetch
         msgs = ["message-%d" % i for i in range(0, 5)]
@@ -569,7 +565,7 @@ class TestKafkaClient(KafkaTestCase):
         messages = list(fetch_resp1.messages) + list(fetch_resp2.messages)
         self.assertEquals(len(messages), 7)
 
-        producer.stop()
+        p.stop()
 
 
 class TestConsumer(KafkaTestCase):

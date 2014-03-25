@@ -121,10 +121,9 @@ class AsyncProducer(Producer):
         Stop the producer. Optionally wait for the specified timeout before
         forcefully cleaning up.
         """
-        if self.async:
-            self._queue.put((AsyncProducer.STOP_ASYNC_PRODUCER, None))
-            self.proc.join(timeout)
+        self._queue.put((AsyncProducer.STOP_ASYNC_PRODUCER, None))
+        self.proc.join(timeout)
 
-            if self.proc.is_alive():
-                self.proc.terminate()
+        if self.proc.is_alive():
+            self.proc.terminate()
 

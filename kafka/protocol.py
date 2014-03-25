@@ -368,7 +368,8 @@ class KafkaProtocol(object):
         message += struct.pack('>i', len(topics))
 
         for topic in topics:
-            message += struct.pack('>h%ds' % len(topic), len(topic), topic.encode('utf-8'))
+            t2 = topic.encode() if isinstance(topic, str) else topic
+            message += struct.pack('>h%ds' % len(t2), len(t2), t2)
 
         return write_int_string(message)
 

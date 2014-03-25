@@ -212,6 +212,7 @@ class KafkaClient(object):
         self.topic_partitions.clear()
 
     def has_metadata_for_topic(self, topic):
+        if isinstance(topic, str): topic = topic.encode()
         return topic in self.topic_partitions
 
     def close(self):

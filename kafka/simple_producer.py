@@ -17,9 +17,9 @@ class SimpleProducer(object):
 
     def _next_partition(self, topic):
         if topic not in self.partition_cycles:
-            if topic not in self.client.topic_partitions:
-                self.client.load_metadata_for_topics(topic)
-            self.partition_cycles[topic] = cycle(self.client.topic_partitions[topic])
+            if topic not in self.producer._client.topic_partitions:
+                self.producer._client.load_metadata_for_topics(topic)
+            self.partition_cycles[topic] = cycle(self.producer._client.topic_partitions[topic])
 
         return next(self.partition_cycles[topic])
 

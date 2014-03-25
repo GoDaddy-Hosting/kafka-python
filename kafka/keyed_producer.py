@@ -24,11 +24,11 @@ class KeyedProducer(Producer):
 
     def _next_partition(self, topic, key):
         if topic not in self.partitioners:
-            if topic not in self.client.topic_partitions:
-                self.client.load_metadata_for_topics(topic)
-            self.partitioners[topic] = self.partitioner_class(self.client.topic_partitions[topic])
+            if topic not in self.producer._client.topic_partitions:
+                self.producer._client.load_metadata_for_topics(topic)
+            self.partitioners[topic] = self.partitioner_class(self.producer._client.topic_partitions[topic])
         partitioner = self.partitioners[topic]
-        return partitioner.partition(key, self.client.topic_partitions[topic])
+        return partitioner.partition(key, self.producer._client.topic_partitions[topic])
 
     def send_message(self, topic, key, msg):
         partition = self._next_partition(topic, key)

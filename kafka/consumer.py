@@ -297,7 +297,7 @@ class SimpleConsumer(Consumer):
         reqs = []
         for partition in self.offsets.keys():
             reqs.append(OffsetRequest(self.topic, partition, -2, 1))
-        self.send_offset_requests(reqs)
+        self.send_offset_requests(reqs, deltas)
 
     def calc_partition_deltas(self, offset):
         (delta, rem) = divmod(offset, len(self.offsets))
@@ -312,9 +312,9 @@ class SimpleConsumer(Consumer):
         reqs = []
         for partition in self.offsets.keys():
             reqs.append(OffsetRequest(self.topic, partition, -1, 1))
-        self.send_offset_requests(reqs)
+        self.send_offset_requests(reqs, deltas)
 
-    def send_offset_requests(self, reqs):
+    def send_offset_requests(self, reqs, deltas):
         resps = self.client.send_offset_request(reqs)
         for resp in resps:
             self.offsets[resp.partition] = \

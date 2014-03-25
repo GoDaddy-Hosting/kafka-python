@@ -76,21 +76,25 @@ class TestSimpleConsumer(unittest.TestCase):
     def test_seek_head(self):
         self.consumer.send_offset_requests = MagicMock()
         self.consumer.offsets = {0:1, 1:1}
-        self.consumer.seek_head(1)
+        offset = 1
+        deltas = self.consumer.calc_partition_deltas(offset)
+        self.consumer.seek_head(offset)
         requests = [
             OffsetRequest(topic='test_topic', partition=0, time=-2, max_offsets=1),
             OffsetRequest(topic='test_topic', partition=1, time=-2, max_offsets=1)
         ]
-        self.consumer.send_offset_requests.assert_called_with(requests)
+        self.consumer.send_offset_requests.assert_called_with(requests, deltas)
 
     def test_seek_tail(self):
         self.consumer.send_offset_requests = MagicMock()
         self.consumer.offsets = {1:1}
-        self.consumer.seek_tail(1)
+        offset = 1
+        deltas = self.consumer.calc_partition_deltas(offset)
+        self.consumer.seek_tail(offset)
         requests = [
             OffsetRequest(topic='test_topic', partition=1, time=-1, max_offsets=1)
         ]
-        self.consumer.send_offset_requests.assert_called_with(requests)
+        self.consumer.send_offset_requests.assert_called_with(requests, deltas)
 
     def test_get_message(self):
         message = MagicMock(offset=0)
@@ -98,3 +102,6 @@ class TestSimpleConsumer(unittest.TestCase):
         msg = self.consumer.get_message()
         self.assertEqual(msg, message)
 
+
+if __name__ == '__main__':
+    unittest.main()

@@ -47,7 +47,7 @@ class TestAsyncProducer(unittest.TestCase):
         self.producer._queue.put((AsyncProducer.STOP_ASYNC_PRODUCER, None))
 
         messages = []
-        messages.append(Message(magic=0, attributes=0, key=None, value='test'))
+        messages.append(Message(magic=0, attributes=0, key=None, value=b'test'))
         request = ProduceRequest('provisioning', 1, messages)
 
         self.producer._start_message_loop()
@@ -71,9 +71,9 @@ class TestAsyncProducer(unittest.TestCase):
         self.producer._queue.put((AsyncProducer.STOP_ASYNC_PRODUCER, None))
 
         messages = [
-                Message(0, 0, None, "test1"),
-                Message(0, 0, None, "test2"),
-                Message(0, 0, None, "test3")
+                Message(0, 0, None, b"test1"),
+                Message(0, 0, None, b"test2"),
+                Message(0, 0, None, b"test3")
             ]
 
         expected = ProduceRequest("provisioning", 1, messages)

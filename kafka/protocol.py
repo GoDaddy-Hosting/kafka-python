@@ -98,7 +98,6 @@ class KafkaProtocol(object):
             msg += write_int_string(val)
 
             crc = zlib.crc32(msg)
-            print(crc)
             msg = struct.pack('>I%ds' % len(msg), crc, msg)
         else:
             raise Exception("Unexpected magic number: %d" % message.magic)
@@ -121,7 +120,6 @@ class KafkaProtocol(object):
                 ((offset, ), cur) = relative_unpack('>q', data, cur)
                 (msg, cur) = read_int_string(data, cur)
                 for (offset, message) in KafkaProtocol._decode_message(msg, offset):
-                    print(message)
                     read_message = True
                     yield OffsetAndMessage(offset, message)
             except BufferUnderflowError:
@@ -151,10 +149,6 @@ class KafkaProtocol(object):
         of the MessageSet payload).
         """
         ((crc, magic, att), cur) = relative_unpack('>IBB', data, 0)
-        print(data)
-        print(data[4:])
-        print(crc)
-        print(zlib.crc32(data[4:]))
         if crc != zlib.crc32(data[4:]):
             raise ChecksumError("Message checksum failed")
 
@@ -214,7 +208,6 @@ class KafkaProtocol(object):
 
             for partition, payload in sorted(topic_payloads.items()):
                 msg_set = KafkaProtocol._encode_message_set(payload.messages)
-                print(msg_set)
                 message += struct.pack('>ii%ds' % len(msg_set), partition,
                                        len(msg_set), msg_set)
 
@@ -384,7 +377,6 @@ class KafkaProtocol(object):
         """
         ((correlation_id, numbrokers), cur) = relative_unpack('>ii', data, 0)
 
-        print('unpacked metadata')
         # Broker info
         brokers = {}
         for i in range(numbrokers):
@@ -393,13 +385,11 @@ class KafkaProtocol(object):
             ((port,), cur) = relative_unpack('>i', data, cur)
             brokers[nodeId] = BrokerMetadata(nodeId, host, port)
 
-        print('topic stuff')
         # Topic info
         ((num_topics,), cur) = relative_unpack('>i', data, cur)
         topic_metadata = {}
 
         for i in range(num_topics):
-            print('looping')
             # NOTE: topic_error is discarded. Should probably be returned with
             # the topic metadata.
             ((topic_error,), cur) = relative_unpack('>h', data, cur)

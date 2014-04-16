@@ -55,7 +55,6 @@ class KafkaConnection(local):
         self.host = host
         self.port = port
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        print('host:', host, 'port:', port)
         self._sock.connect((host, port))
         self.timeout = timeout
         self._sock.settimeout(self.timeout)
@@ -119,16 +118,11 @@ class KafkaConnection(local):
         # Read the size off of the header
         resp = self._read_bytes(4)
 
-        print('unpacking')
         (size,) = struct.unpack('>i', resp)
-        print('unpacked')
-        print(size)
 
         # Read the remainder of the response
         resp = self._read_bytes(size)
-        print('resp', resp)
         wrapped = resp
-        print('wrapped:',wrapped)
         return wrapped
 
     def copy(self):

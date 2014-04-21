@@ -11,7 +11,7 @@ import threading
 import time
 import uuid
 
-from urlparse import urlparse
+from urllib.parse import urlparse
 
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))

@@ -65,7 +65,7 @@ def snappy_encode(payload, xerial_compatible=False, xerial_blocksize=32 * 1024):
 
     if xerial_compatible:
         def _chunker():
-            for i in xrange(0, len(payload), xerial_blocksize):
+            for i in range(0, len(payload), xerial_blocksize):
                 yield payload[i:i+xerial_blocksize]
 
         out = BytesIO()

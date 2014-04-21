@@ -77,7 +77,7 @@ class TestCodec(unittest.TestCase):
 
     @unittest.skipUnless(has_snappy(), "Snappy not available")
     def test_snappy(self):
-        for i in xrange(ITERATIONS):
+        for i in range(ITERATIONS):
             s1 = random_string()
             s2 = snappy_decode(snappy_encode(s1))
             self.assertEquals(s1, s2)

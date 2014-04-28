@@ -9,7 +9,7 @@ from queue import Empty, Queue
 
 from kafka.common import (
     ErrorMapping, FetchRequest,
-    OffsetRequest, OffsetCommitRequest,
+    OffsetRequest, OffsetFetchRequest, OffsetCommitRequest,
     ConsumerFetchSizeTooSmall, ConsumerNoMoreData
 )
 
@@ -105,17 +105,17 @@ class Consumer(object):
                                 "partition=%d failed with errorcode=%s" % (
                                     resp.topic, resp.partition, resp.error))
 
-        # Uncomment for 0.8.1
-        #
-        #for partition in partitions:
-        #    req = OffsetFetchRequest(topic, partition)
-        #    (offset,) = self.client.send_offset_fetch_request(group, [req],
-        #                  callback=get_or_init_offset_callback,
-        #                  fail_on_error=False)
-        #    self.offsets[partition] = offset
-
+        # Uncommented for 0.8.1
         for partition in partitions:
-            self.offsets[partition] = 0
+            req = OffsetFetchRequest(topic, partition)
+            (offset,) = self.client.send_offset_fetch_request(group, [req],
+                          callback=get_or_init_offset_callback,
+                          fail_on_error=False)
+            self.offsets[partition] = offset
+
+        # Replace above for 0.8.0
+        # for partition in partitions:
+        #   self.offsets[partition] = 0
 
     def commit(self, partitions=None):
         """
